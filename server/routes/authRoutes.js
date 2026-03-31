@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const authMiddleware = require("../middleware/authMiddleware");
 
 
 // 🔐 REGISTER
@@ -74,5 +75,16 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+
+// 🔒 PROTECTED ROUTE
+router.get("/protected", authMiddleware, (req, res) => {
+  res.json({
+    message: "Protected route accessed ✅",
+    user: req.user,
+  });
+});
+
+
 
 module.exports = router;
