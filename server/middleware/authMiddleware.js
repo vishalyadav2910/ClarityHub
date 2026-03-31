@@ -11,6 +11,9 @@ const protect = async (req, res, next) => {
     try {
       token = req.headers.authorization.split(" ")[1];
 
+      // 🔥 DEBUG: check JWT_SECRET
+      console.log("JWT_SECRET:", process.env.JWT_SECRET);
+
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       // 🔥 fetch full user from DB
