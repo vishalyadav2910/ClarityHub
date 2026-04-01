@@ -16,19 +16,22 @@ app.use(express.json());
 // Routes
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
-const postRoutes = require("./routes/postRoutes"); // ✅ add
+const postRoutes = require("./routes/postRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
-app.use("/api/posts", postRoutes); // ✅ add
+app.use("/api/posts", postRoutes);
 
-// Test route
+// Health check
 app.get("/", (req, res) => {
-  res.send("API is running...");
+  res.json({
+    message: "ClarityHub API running 🚀",
+  });
 });
 
 // Server start
 const PORT = process.env.PORT || 3001;
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
