@@ -4,31 +4,36 @@ const User = require("../models/User");
 const protect = async (req, res, next) => {
   let token;
 
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
-    try {
-      token = req.headers.authorization.split(" ")[1];
+  try {
+    const authHeader = req.headers.authorization;
 
-      // 🔥 DEBUG: check JWT_SECRET
-      console.log("JWT_SECRET:", process.env.JWT_SECRET);
+    console.log("AUTH HEADER:", authHeader);
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      // 🔥 fetch full user from DB
-      req.user = await User.findById(decoded.id).select("-password");
-
-      next();
-
-    } catch (error) {
-      console.log("JWT ERROR:", error.message);
-      return res.status(401).json({ message: "Token failed" });
+    if (!authHeader) {
+      return res.status(401).json({ message: "No token provided" });
     }
-  }
 
-  if (!token) {
-    return res.status(401).json({ message: "No token, authorization denied" });
+    if (!authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Invalid token format" });
+    }
+
+    token = authHeader.split(" ")[1];
+
+    if (!token) {
+      return res.status(401).json({ message: "Token missing after Bearer" });
+    }
+
+    console.log("TOKEN:", token);
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    req.user = await User.findById(decoded.id).select("-password");
+
+    next();
+
+  } catch (error) {
+    console.log("JWT ERROR:", error.message);
+    return res.status(401).json({ message: "Token failed" });
   }
 };
 
