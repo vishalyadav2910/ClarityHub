@@ -29,17 +29,23 @@ router.post("/", protect, async (req, res) => {
 });
 
 
-// 🌍 GET POSTS (Pagination 🚀)
+// 🌍 GET POSTS (Pagination + Search 🚀)
 router.get("/", async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 5;
+    const search = req.query.search || "";
 
     const skip = (page - 1) * limit;
 
-    const totalPosts = await Post.countDocuments();
+    // 🔍 search filter
+    const searchFilter = {
+      content: { $regex: search, $options: "i" },
+    };
 
-    const posts = await Post.find()
+    const totalPosts = await Post.countDocuments(searchFilter);
+
+    const posts = await Post.find(searchFilter)
       .populate("user", "name email")
       .sort({ createdAt: -1 })
       .skip(skip)
