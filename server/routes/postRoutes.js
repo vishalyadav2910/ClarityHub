@@ -29,6 +29,31 @@ router.post("/", protect, async (req, res) => {
 });
 
 
+// 👤 GET MY POSTS (🔥 MUST BE ABOVE /:id ROUTES)
+router.get("/my", protect, async (req, res) => {
+  try {
+    const posts = await Post.find({ user: req.user._id })
+      .populate("user", "name email")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const formattedPosts = posts.map((post) => ({
+      ...post,
+      likesCount: post.likes.length,
+      commentsCount: post.comments.length,
+    }));
+
+    res.json({
+      totalPosts: posts.length,
+      posts: formattedPosts,
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 // 🌍 GET POSTS (Pagination + Search 🚀)
 router.get("/", async (req, res) => {
   try {
@@ -38,7 +63,6 @@ router.get("/", async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    // 🔍 search filter
     const searchFilter = {
       content: { $regex: search, $options: "i" },
     };
