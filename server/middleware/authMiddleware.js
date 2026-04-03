@@ -2,38 +2,50 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
 const protect = async (req, res, next) => {
-  let token;
-
   try {
+    let token;
+
     const authHeader = req.headers.authorization;
 
-    console.log("AUTH HEADER:", authHeader);
-
-    if (!authHeader) {
-      return res.status(401).json({ message: "No token provided" });
+    // 🔍 Check if header exists and starts with Bearer
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        message: "Not authorized, no token ❌",
+      });
     }
 
-    if (!authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "Invalid token format" });
-    }
-
+    // 🎯 Extract token
     token = authHeader.split(" ")[1];
 
     if (!token) {
-      return res.status(401).json({ message: "Token missing after Bearer" });
+      return res.status(401).json({
+        message: "Token missing ❌",
+      });
     }
 
-    console.log("TOKEN:", token);
-
+    // 🔐 Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    req.user = await User.findById(decoded.id).select("-password");
+    // 👤 Get user from DB
+    const user = await User.findById(decoded.id).select("-password");
+
+    if (!user) {
+      return res.status(401).json({
+        message: "User not found ❌",
+      });
+    }
+
+    // ✅ Attach user to request
+    req.user = user;
 
     next();
 
   } catch (error) {
     console.log("JWT ERROR:", error.message);
-    return res.status(401).json({ message: "Token failed" });
+
+    return res.status(401).json({
+      message: "Token failed ❌",
+    });
   }
 };
 
