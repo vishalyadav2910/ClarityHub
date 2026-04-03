@@ -2,34 +2,49 @@ const express = require("express");
 const router = express.Router();
 const Post = require("../models/Post");
 const protect = require("../middleware/authMiddleware");
+const { body, validationResult } = require("express-validator");
 
 
-// 📝 CREATE POST
-router.post("/", protect, async (req, res) => {
-  try {
-    const { content } = req.body;
+// 📝 CREATE POST (WITH VALIDATION)
+router.post(
+  "/",
+  protect,
+  [
+    body("content")
+      .notEmpty()
+      .withMessage("Content is required ❌")
+      .isLength({ max: 500 })
+      .withMessage("Content too long ❌"),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          errors: errors.array(),
+        });
+      }
 
-    if (!content) {
-      return res.status(400).json({ message: "Content is required ❌" });
+      const { content } = req.body;
+
+      const post = await Post.create({
+        user: req.user._id,
+        content,
+      });
+
+      res.status(201).json({
+        message: "Post created successfully ✅",
+        post,
+      });
+
+    } catch (error) {
+      res.status(500).json({ error: error.message });
     }
-
-    const post = await Post.create({
-      user: req.user._id,
-      content,
-    });
-
-    res.status(201).json({
-      message: "Post created successfully ✅",
-      post,
-    });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
-});
+);
 
 
-// 👤 GET MY POSTS (🔥 MUST BE ABOVE /:id ROUTES)
+// 👤 GET MY POSTS
 router.get("/my", protect, async (req, res) => {
   try {
     const posts = await Post.find({ user: req.user._id })
@@ -54,7 +69,7 @@ router.get("/my", protect, async (req, res) => {
 });
 
 
-// 🌍 GET POSTS (Pagination + Search 🚀)
+// 🌍 GET POSTS (Pagination + Search)
 router.get("/", async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -132,38 +147,52 @@ router.put("/:id/like", protect, async (req, res) => {
 });
 
 
-// 💬 ADD COMMENT
-router.post("/:id/comment", protect, async (req, res) => {
-  try {
-    const { text } = req.body;
+// 💬 ADD COMMENT (WITH VALIDATION)
+router.post(
+  "/:id/comment",
+  protect,
+  [
+    body("text")
+      .notEmpty()
+      .withMessage("Comment text required ❌")
+      .isLength({ max: 200 })
+      .withMessage("Comment too long ❌"),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          errors: errors.array(),
+        });
+      }
 
-    if (!text) {
-      return res.status(400).json({ message: "Comment text required ❌" });
+      const { text } = req.body;
+
+      const post = await Post.findById(req.params.id);
+
+      if (!post) {
+        return res.status(404).json({ message: "Post not found ❌" });
+      }
+
+      const comment = {
+        user: req.user._id,
+        text,
+      };
+
+      post.comments.push(comment);
+      await post.save();
+
+      res.json({
+        message: "Comment added ✅",
+        comments: post.comments,
+      });
+
+    } catch (error) {
+      res.status(500).json({ error: error.message });
     }
-
-    const post = await Post.findById(req.params.id);
-
-    if (!post) {
-      return res.status(404).json({ message: "Post not found ❌" });
-    }
-
-    const comment = {
-      user: req.user._id,
-      text,
-    };
-
-    post.comments.push(comment);
-    await post.save();
-
-    res.json({
-      message: "Comment added ✅",
-      comments: post.comments,
-    });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
-});
+);
 
 
 // 🗑️ DELETE COMMENT
@@ -204,37 +233,51 @@ router.delete("/:postId/comment/:commentId", protect, async (req, res) => {
 });
 
 
-// ✏️ UPDATE POST
-router.put("/:id", protect, async (req, res) => {
-  try {
-    const { content } = req.body;
+// ✏️ UPDATE POST (WITH VALIDATION)
+router.put(
+  "/:id",
+  protect,
+  [
+    body("content")
+      .notEmpty()
+      .withMessage("Content required ❌")
+      .isLength({ max: 500 })
+      .withMessage("Content too long ❌"),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          errors: errors.array(),
+        });
+      }
 
-    if (!content) {
-      return res.status(400).json({ message: "Content required ❌" });
+      const { content } = req.body;
+
+      const post = await Post.findById(req.params.id);
+
+      if (!post) {
+        return res.status(404).json({ message: "Post not found ❌" });
+      }
+
+      if (post.user.toString() !== req.user._id.toString()) {
+        return res.status(401).json({ message: "Not authorized ❌" });
+      }
+
+      post.content = content;
+      await post.save();
+
+      res.json({
+        message: "Post updated successfully ✅",
+        post,
+      });
+
+    } catch (error) {
+      res.status(500).json({ error: error.message });
     }
-
-    const post = await Post.findById(req.params.id);
-
-    if (!post) {
-      return res.status(404).json({ message: "Post not found ❌" });
-    }
-
-    if (post.user.toString() !== req.user._id.toString()) {
-      return res.status(401).json({ message: "Not authorized ❌" });
-    }
-
-    post.content = content;
-    await post.save();
-
-    res.json({
-      message: "Post updated successfully ✅",
-      post,
-    });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
-});
+);
 
 
 // 🗑️ DELETE POST
@@ -260,5 +303,6 @@ router.delete("/:id", protect, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 module.exports = router;
