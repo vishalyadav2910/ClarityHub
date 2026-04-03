@@ -4,7 +4,7 @@ const Post = require("../models/Post");
 const protect = require("../middleware/authMiddleware");
 
 
-// 📝 CREATE POST (Protected)
+// 📝 CREATE POST
 router.post("/", protect, async (req, res) => {
   try {
     const { content } = req.body;
@@ -29,21 +29,35 @@ router.post("/", protect, async (req, res) => {
 });
 
 
-// 🌍 GET ALL POSTS
+// 🌍 GET POSTS (Pagination 🚀)
 router.get("/", async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+
+    const skip = (page - 1) * limit;
+
+    const totalPosts = await Post.countDocuments();
+
     const posts = await Post.find()
       .populate("user", "name email")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
-    // add counts 🔥
     const formattedPosts = posts.map((post) => ({
-      ...post._doc,
+      ...post,
       likesCount: post.likes.length,
       commentsCount: post.comments.length,
     }));
 
-    res.json(formattedPosts);
+    res.json({
+      page,
+      totalPages: Math.ceil(totalPosts / limit),
+      totalPosts,
+      posts: formattedPosts,
+    });
 
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -67,12 +81,10 @@ router.put("/:id/like", protect, async (req, res) => {
     );
 
     if (alreadyLiked) {
-      // unlike
       post.likes = post.likes.filter(
         (id) => id.toString() !== userId.toString()
       );
     } else {
-      // like
       post.likes.push(userId);
     }
 
@@ -141,7 +153,6 @@ router.delete("/:postId/comment/:commentId", protect, async (req, res) => {
       return res.status(404).json({ message: "Comment not found ❌" });
     }
 
-    // 🔐 ownership check
     if (
       comment.user.toString() !== req.user._id.toString() &&
       post.user.toString() !== req.user._id.toString()
@@ -178,7 +189,6 @@ router.put("/:id", protect, async (req, res) => {
       return res.status(404).json({ message: "Post not found ❌" });
     }
 
-    // 🔐 owner check
     if (post.user.toString() !== req.user._id.toString()) {
       return res.status(401).json({ message: "Not authorized ❌" });
     }
@@ -206,7 +216,6 @@ router.delete("/:id", protect, async (req, res) => {
       return res.status(404).json({ message: "Post not found ❌" });
     }
 
-    // 🔐 owner check
     if (post.user.toString() !== req.user._id.toString()) {
       return res.status(401).json({ message: "Not authorized ❌" });
     }
